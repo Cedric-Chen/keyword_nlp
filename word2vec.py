@@ -15,10 +15,11 @@ import time
 
 #%%
 mp_dir = "/Users/puyangchen/go/src/github.com/agilab/cedric/tensorflow"
+deepbox_dir = "/home/chenpuyang/Projects/keyword/keyword_nlp"
 
-vocabulary_size = 200
-filename = 'words2.txt'
-num_steps = 10000
+vocabulary_size = 1000000
+filename = 'words.txt'
+num_steps = 1000000
 
 if 'macbook' in socket.gethostname().lower():
     assert(os.path.exists(mp_dir))
@@ -30,6 +31,15 @@ if 'macbook' in socket.gethostname().lower():
     input_file = os.path.abspath(os.path.join(curdir, '..', filename))
     assert os.path.exists(input_file)
 elif 'deepbox' in socket.gethostname().lower():
+    assert(os.path.exists(deepbox_dir))
+    os.chdir(deepbox_dir)
+    curdir = deepbox_dir
+    log_dir = os.path.abspath(os.path.join(curdir, '..', 'log'))
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    input_file = os.path.abspath(os.path.join(curdir, '..', 'data', filename))
+    assert os.path.exists(input_file)
+else:
     print('Unknown host.')
 
 #%%
@@ -232,7 +242,6 @@ with tf.Session(graph=graph) as sess:
         
         now = time.time()
         if now - last_checkpoint_time > 20 * 1:
-            print("\nsave\n")
             saver.save(sess, os.path.join(log_dir, 'model.ckpt'))
             last_checkpoint_time = time.time()
 

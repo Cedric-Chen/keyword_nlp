@@ -18,6 +18,7 @@ mp_dir = "/Users/puyangchen/go/src/github.com/agilab/cedric/tensorflow"
 
 vocabulary_size = 200
 filename = 'words2.txt'
+num_steps = 10000
 
 if 'macbook' in socket.gethostname().lower():
     assert(os.path.exists(mp_dir))
@@ -41,7 +42,6 @@ embedding_size = 200
 
 num_sampled = 64
 learning_rate = 1.0
-num_steps = 10000
 
 #%%
 @record_cost

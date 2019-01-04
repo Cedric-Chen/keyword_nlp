@@ -1,8 +1,4 @@
 #%%
-import os
-os.chdir('/Users/puyangchen/go/src/github.com/agilab/cedric/tensorflow')
-
-#%%
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -12,14 +8,35 @@ import time
 from multiprocessing import Pool
 from functools import reduce, wraps
 import operator
+import os
+import socket
 import multiprocessing
 from collections import Counter
 
 import numpy as np
 import tensorflow as tf
 
-from util import record_cost
+#%%
+mp_dir = "/Users/puyangchen/go/src/github.com/agilab/cedric/tensorflow"
+deepbox_dir = "/home/chenpuyang/Projects/keyword/keyword_nlp"
+filename = 'words.txt'
 
+if 'macbook' in socket.gethostname().lower():
+    assert(os.path.exists(mp_dir))
+    os.chdir(mp_dir)
+    curdir = mp_dir
+    input_file = os.path.abspath(os.path.join(curdir, '..', filename))
+    assert os.path.exists(input_file)
+elif 'deepbox' in socket.gethostname().lower():
+    assert(os.path.exists(deepbox_dir))
+    os.chdir(deepbox_dir)
+    curdir = deepbox_dir
+    input_file = os.path.abspath(os.path.join(curdir, '..', 'data', filename))
+    assert os.path.exists(input_file)
+else:
+    print('Unknown host.')
+
+from util import record_cost
 
 #%%
 class SampleWord:
@@ -163,16 +180,14 @@ class Input:
 		return data[0], data[1] 
 
 #%%
-filename = '/Users/puyangchen/go/src/github.com/agilab/cedric/words1.txt'
-
-sample_func = SampleWord(WordAnalyzer(filename).frequent_word_parallel()).sample
+sample_func = SampleWord(WordAnalyzer(input_file).frequent_word_parallel()).sample
 window_size = 2
 num_negative_samples = 2
 
-#%%
-input = Input(filename, window_size, num_negative_samples, sample_func)
-a, b = input.generate_dataset(filename, 2)
-assert len(a) == len(b)
-print("data length", len(a))
-for i in range(10):
-	print(a[i], b[i])
+# #%%
+# input = Input(input_file, window_size, num_negative_samples, sample_func)
+# a, b = input.generate_dataset(filename, 2)
+# assert len(a) == len(b)
+# print("data length", len(a))
+# for i in range(10):
+# 	print(a[i], b[i])

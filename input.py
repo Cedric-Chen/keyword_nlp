@@ -13,6 +13,7 @@ from multiprocessing import Pool
 from functools import reduce, wraps
 import operator
 import multiprocessing
+from collections import Counter
 
 import numpy as np
 import tensorflow as tf
@@ -99,6 +100,10 @@ class WordAnalyzer:
 		sorted_counts = [x for x in counts.items() if x[1] >= least_occurence]
 		sorted_counts = sorted(sorted_counts, key=operator.itemgetter(1), reverse=True)
 		return sorted_counts
+
+	def most_common_parallel(self, N=5000, N_lines=50000):
+		counts = self.count_words_parallel(N_lines)
+		return Counter(counts).most_common(N)
 
 class Input:
 	def __init__(self, filename, window_size, num_negative_samples, sample_func):

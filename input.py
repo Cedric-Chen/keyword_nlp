@@ -4,9 +4,9 @@ from __future__ import division
 from __future__ import print_function
 
 import time
-# from itertools import product
 from multiprocessing import Pool
 from functools import reduce, wraps
+from datetime import datetime
 import operator
 import os
 import socket
@@ -19,19 +19,22 @@ import tensorflow as tf
 #%%
 mp_dir = "/Users/puyangchen/go/src/github.com/agilab/cedric/tensorflow"
 deepbox_dir = "/home/chenpuyang/Projects/keyword/keyword_nlp"
-filename = 'words.txt'
+infile_name = 'words2.txt'
+outfile_name = 'mod_data.csv'
 
 if 'macbook' in socket.gethostname().lower():
     assert(os.path.exists(mp_dir))
     os.chdir(mp_dir)
     curdir = mp_dir
-    input_file = os.path.abspath(os.path.join(curdir, '..', filename))
+    input_file = os.path.abspath(os.path.join(curdir, '..', infile_name))
+    output_file = os.path.abspath(os.path.join(curdir, '..', outfile_name))
     assert os.path.exists(input_file)
 elif 'deepbox' in socket.gethostname().lower():
     assert(os.path.exists(deepbox_dir))
     os.chdir(deepbox_dir)
     curdir = deepbox_dir
-    input_file = os.path.abspath(os.path.join(curdir, '..', 'data', filename))
+    input_file = os.path.abspath(os.path.join(curdir, '..', 'data', infile_name))
+    output_file = os.path.abspath(os.path.join(curdir, '..', 'data', outfile_name))
     assert os.path.exists(input_file)
 else:
     print('Unknown host.')
@@ -43,12 +46,13 @@ class SampleWord:
 	def __init__(self, word_counts):
 		self.word_counts = word_counts
 
-	def sample(self):
-		words = [x[0] for x in self.word_counts]
-		counts = [x[1] for x in self.word_counts]
-		probs = [x/sum(counts) for x in counts]
+		self.words = [x[0] for x in self.word_counts]
+		self.counts = [x[1] for x in self.word_counts]
+		self.probs = [x/sum(self.counts) for x in self.counts]
 
-		return np.random.choice(words, size=1, p=probs)[0]
+	# @record_cost
+	def sample(self):
+		return np.random.choice(self.words, size=1, p=self.probs)[0]
 
 def next_n_lines(file_opened, n):
 	lines = list()
@@ -123,8 +127,9 @@ class WordAnalyzer:
 		return Counter(counts).most_common(N)
 
 class Input:
-	def __init__(self, filename, window_size, num_negative_samples, sample_func):
-		self.filename = filename
+	def __init__(self, input_file, output_file, window_size, num_negative_samples, sample_func):
+		self.input_file = input_file 
+		self.output_file = output_file
 		self.window_size = window_size
 		self.num_negative_samples = num_negative_samples
 		self.sample_func = sample_func
@@ -141,11 +146,11 @@ class Input:
 				if j == 0 or i+j < 0 or i+j >= len(words):
 					continue
 				features.append((words[i], words[i+j]))
-				labels.append(True)
+				labels.append(1)
 			# negative samples
-			for k in range(self.num_negative_samples):
+			for _ in range(self.num_negative_samples):
 				features.append((words[i], self.sample_func()))
-				labels.append(False)
+				labels.append(0)
 				
 		return features, labels
 
@@ -159,35 +164,37 @@ class Input:
 			labels.extend(label)
 		return features, labels
 
-	def _merge_data(self, data1, data2):
-		data1[0].extend(data2[0])
-		data1[1].extend(data2[1])
-		return data1[0], data1[1]
+	# def _merge_data(self, data1, data2):
+	# 	data1[0].extend(data2[0])
+	# 	data1[1].extend(data2[1])
+	# 	return data1[0], data1[1]
 
 	@record_cost
-	def generate_dataset(self, filename, N_lines):
-		with open(self.filename, 'r', encoding='utf-8') as f:
-			with Pool(processes = multiprocessing.cpu_count()) as pool:
-				results = list()
+	def generate_dataset(self, N_lines=50000):
+		with open(self.input_file, 'r', encoding='utf-8') as inf:
+			with open(self.output_file, 'w', encoding='utf-8') as of:
+				with Pool(processes = multiprocessing.cpu_count()) as pool:
+					results = list()
 
-				lines = next_n_lines(f, N_lines)
-				while lines:
-					results.append(pool.map_async(self._parse_lines, (lines,)))
-					lines = next_n_lines(f, N_lines)	
+					lines = next_n_lines(inf, N_lines)
+					while lines:
+						results.append(pool.map_async(self._parse_lines, (lines,)))
+						lines = next_n_lines(inf, N_lines)	
 
-				data = reduce(self._merge_data, [p.get()[0] for p in results])
+					num_of_process = len(results)
+					print("number of process", num_of_process)
 
-		return data[0], data[1] 
+					for count, p in enumerate(results):
+						a, b = p.get()[0]
+						for i, _ in enumerate(a):
+							of.write(a[i][0] + ',' + a[i][1] + ',' + str(b[i]) + '\n')
+						print(datetime.now(), 'process', count, 'finished')
 
 #%%
-sample_func = SampleWord(WordAnalyzer(input_file).frequent_word_parallel()).sample
+sample_func = SampleWord(WordAnalyzer(input_file).most_common_parallel()).sample
 window_size = 2
 num_negative_samples = 2
 
-# #%%
-# input = Input(input_file, window_size, num_negative_samples, sample_func)
-# a, b = input.generate_dataset(filename, 2)
-# assert len(a) == len(b)
-# print("data length", len(a))
-# for i in range(10):
-# 	print(a[i], b[i])
+#%%
+input = Input(input_file, output_file, window_size, num_negative_samples, sample_func)
+input.generate_dataset()
